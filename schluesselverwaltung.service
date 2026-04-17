@@ -1,0 +1,21 @@
+[Unit]
+Description=Schlüsselverwaltung SV Westfalia Osterwick (Gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/schluesselverwaltung
+EnvironmentFile=/var/www/schluesselverwaltung/.env
+ExecStart=/var/www/schluesselverwaltung/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8006 \
+    --capture-output \
+    --error-logfile - \
+    --access-logfile - \
+    schluesselverwaltung.wsgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
