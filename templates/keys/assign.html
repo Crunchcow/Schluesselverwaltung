@@ -1,6 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Schlüssel vergeben{% endblock %}
 
+{% block extra_css %}
+<style>
+#manualFields { display: none; }
+.person-card { cursor: pointer; border: 2px solid transparent; border-radius: 10px; padding: 10px 14px; transition: border-color .15s, background .15s; }
+.person-card:hover { background: #fef2f2; border-color: #fca5a5; }
+.person-card.selected { border-color: var(--red); background: #fef2f2; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
 <div class="col-md-7">
@@ -10,47 +19,111 @@
         <strong>{{ key.key_type.name }}</strong> – {{ key.number }}
     </p>
 
-    <form method="post">
+    <form method="post" id="assignForm">
         {% csrf_token %}
+        <input type="hidden" name="person_id" id="personIdField">
 
-        <div class="mb-3">
-            <label class="form-label fw-semibold">Name des Inhabers <span class="text-danger">*</span></label>
-            <input type="text" name="holder_name" class="form-control" required
-                   placeholder="Vor- und Nachname">
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold">E-Mail</label>
-                <input type="email" name="holder_email" class="form-control"
-                       placeholder="optional">
+        {% if persons %}
+        <!-- Schritt 1: Person auswählen -->
+        <div class="mb-4">
+            <label class="form-label fw-bold">Person auswählen</label>
+            <div class="row g-2 mb-2">
+                {% for p in persons %}
+                <div class="col-md-6">
+                    <div class="person-card" data-id="{{ p.pk }}"
+                         data-name="{{ p.name }}"
+                         data-email="{{ p.email }}"
+                         data-phone="{{ p.phone }}">
+                        <div class="fw-bold">{{ p.name }}</div>
+                        {% if p.role %}<div class="text-muted small">{{ p.role }}</div>{% endif %}
+                        {% if p.phone %}<div class="text-muted small">📞 {{ p.phone }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold">Telefon</label>
-                <input type="tel" name="holder_phone" class="form-control"
-                       placeholder="optional">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="manualToggle">
+                ✏️ Oder manuell eingeben
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- Schritt 2: Felder (immer sichtbar wenn keine Personen, sonst aufklappbar) -->
+        <div id="manualFields" {% if not persons %}style="display:block"{% endif %}>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Name <span class="text-danger">*</span></label>
+                <input type="text" name="holder_name" id="holderName" class="form-control"
+                       placeholder="Vor- und Nachname" {% if not persons %}required{% endif %}>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">E-Mail</label>
+                    <input type="email" name="holder_email" id="holderEmail" class="form-control" placeholder="optional">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Telefon</label>
+                    <input type="tel" name="holder_phone" id="holderPhone" class="form-control" placeholder="optional">
+                </div>
             </div>
         </div>
 
         <div class="mb-3">
             <label class="form-label fw-semibold">Ausgabedatum <span class="text-danger">*</span></label>
-            <input type="date" name="issued_date" class="form-control"
-                   value="{{ today }}" required>
+            <input type="date" name="issued_date" class="form-control" value="{{ today }}" required>
         </div>
 
         <div class="mb-4">
             <label class="form-label fw-semibold">Bemerkungen</label>
-            <textarea name="notes" class="form-control" rows="2"
-                      placeholder="optional"></textarea>
+            <textarea name="notes" class="form-control" rows="2" placeholder="optional"></textarea>
         </div>
 
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-red">✅ Ausgabe bestätigen</button>
+            <button type="submit" class="btn btn-red" id="submitBtn" disabled>✅ Ausgabe bestätigen</button>
             <a href="/" class="btn btn-outline-secondary">Abbrechen</a>
         </div>
-        <p class="text-muted small mt-2">* Pflichtangabe</p>
+        <p class="text-muted small mt-2">* Pflichtangabe. Bitte Person auswählen oder manuell eingeben.</p>
     </form>
 </div>
 </div>
 </div>
+
+<script>
+(function () {
+    const cards      = document.querySelectorAll('.person-card');
+    const pidField   = document.getElementById('personIdField');
+    const nameField  = document.getElementById('holderName');
+    const emailField = document.getElementById('holderEmail');
+    const phoneField = document.getElementById('holderPhone');
+    const manual     = document.getElementById('manualFields');
+    const toggle     = document.getElementById('manualToggle');
+    const submitBtn  = document.getElementById('submitBtn');
+
+    {% if not persons %}
+    submitBtn.disabled = false;
+    {% endif %}
+
+    cards.forEach(card => {
+        card.addEventListener('click', () => {
+            cards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            pidField.value  = card.dataset.id;
+            if (nameField)  nameField.value  = card.dataset.name;
+            if (emailField) emailField.value = card.dataset.email;
+            if (phoneField) phoneField.value = card.dataset.phone;
+            submitBtn.disabled = false;
+        });
+    });
+
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            manual.style.display = manual.style.display === 'none' ? 'block' : 'none';
+            if (manual.style.display === 'block') {
+                cards.forEach(c => c.classList.remove('selected'));
+                pidField.value = '';
+                if (nameField) nameField.required = true;
+                submitBtn.disabled = false;
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

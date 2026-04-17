@@ -53,11 +53,37 @@ class Key(models.Model):
         return self.assignments.filter(return_date__isnull=True).first()
 
 
+class Person(models.Model):
+    """Bekannte Schlüsselempfänger (Reinigungskräfte, Hausmeister, …)"""
+    name = models.CharField(max_length=200, verbose_name='Name')
+    role = models.CharField(max_length=100, blank=True, verbose_name='Funktion',
+                            help_text='z.B. Hausmeister, Reinigungskraft, Trainer')
+    email = models.EmailField(blank=True, verbose_name='E-Mail')
+    phone = models.CharField(max_length=50, blank=True, verbose_name='Telefon')
+    notes = models.TextField(blank=True, verbose_name='Bemerkungen')
+    is_active = models.BooleanField(default=True, verbose_name='Aktiv')
+
+    class Meta:
+        verbose_name = 'Person'
+        verbose_name_plural = 'Personen'
+        ordering = ['name']
+
+    def __str__(self):
+        if self.role:
+            return f'{self.name} ({self.role})'
+        return self.name
+
+
 class KeyAssignment(models.Model):
     """Ausgabe und Rücknahme eines Schlüssels"""
     key = models.ForeignKey(
         Key, on_delete=models.CASCADE,
         related_name='assignments', verbose_name='Schlüssel',
+    )
+    person = models.ForeignKey(
+        Person, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='assignments', verbose_name='Person',
     )
     holder_name = models.CharField(max_length=200, verbose_name='Name des Schlüsselinhabers')
     holder_email = models.EmailField(blank=True, verbose_name='E-Mail')

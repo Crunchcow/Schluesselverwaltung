@@ -16,4 +16,8 @@ urlpatterns = [
     path('verwalten/schluessel/neu/', views.key_create, name='key_create'),
     path('verwalten/schluessel/<int:key_id>/bearbeiten/', views.key_edit, name='key_edit'),
     path('verwalten/schluessel/<int:key_id>/loeschen/', views.key_delete, name='key_delete'),
+    # Personen
+    path('verwalten/person/neu/', views.person_create, name='person_create'),
+    path('verwalten/person/<int:person_id>/bearbeiten/', views.person_edit, name='person_edit'),
+    path('verwalten/person/<int:person_id>/loeschen/', views.person_delete, name='person_delete'),
 ]

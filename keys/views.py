@@ -8,7 +8,7 @@ from django.conf import settings as django_settings
 from django.utils import timezone
 from datetime import date
 
-from .models import KeyType, Key, KeyAssignment
+from .models import KeyType, Key, KeyAssignment, Person
 
 
 # ── Auth-Hilfsfunktion ────────────────────────────────────────────────────────
@@ -102,17 +102,27 @@ def assign_key(request, key_id):
         return redirect('dashboard')
 
     if request.method == 'POST':
+        person_id    = request.POST.get('person_id', '').strip()
         holder_name  = request.POST.get('holder_name', '').strip()
         holder_email = request.POST.get('holder_email', '').strip()
         holder_phone = request.POST.get('holder_phone', '').strip()
         issued_date  = request.POST.get('issued_date', '')
         notes        = request.POST.get('notes', '').strip()
 
+        person = None
+        if person_id:
+            person = Person.objects.filter(pk=person_id).first()
+            if person:
+                holder_name  = holder_name or person.name
+                holder_email = holder_email or person.email
+                holder_phone = holder_phone or person.phone
+
         if not holder_name or not issued_date:
             messages.error(request, 'Name und Ausgabedatum sind Pflichtfelder.')
         else:
             KeyAssignment.objects.create(
                 key=key,
+                person=person,
                 holder_name=holder_name,
                 holder_email=holder_email,
                 holder_phone=holder_phone,
@@ -123,9 +133,11 @@ def assign_key(request, key_id):
             messages.success(request, f'Schlüssel "{key}" wurde an {holder_name} ausgegeben.')
             return redirect('dashboard')
 
+    persons = Person.objects.filter(is_active=True)
     return render(request, 'keys/assign.html', {
         'key': key,
         'today': date.today().isoformat(),
+        'persons': persons,
     })
 
 
@@ -196,7 +208,8 @@ def manage(request):
         return guard
 
     key_types = KeyType.objects.prefetch_related('keys').all()
-    return render(request, 'keys/manage.html', {'key_types': key_types})
+    persons   = Person.objects.all()
+    return render(request, 'keys/manage.html', {'key_types': key_types, 'persons': persons})
 
 
 def keytype_create(request):
@@ -305,6 +318,68 @@ def key_delete(request, key_id):
             label = str(key)
             key.delete()
             messages.success(request, f'Schlüssel „{label}" gelöscht.')
+    return redirect('manage')
+
+
+# ── Personen-Verwaltung ───────────────────────────────────────────────────────
+
+def person_create(request):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    if request.method == 'POST':
+        name  = request.POST.get('name', '').strip()
+        role  = request.POST.get('role', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        notes = request.POST.get('notes', '').strip()
+        if name:
+            Person.objects.create(name=name, role=role, email=email, phone=phone, notes=notes)
+            messages.success(request, f'Person „{name}" angelegt.')
+        else:
+            messages.error(request, 'Name ist ein Pflichtfeld.')
+    return redirect('manage')
+
+
+def person_edit(request, person_id):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    person = get_object_or_404(Person, pk=person_id)
+    if request.method == 'POST':
+        name  = request.POST.get('name', '').strip()
+        role  = request.POST.get('role', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        notes = request.POST.get('notes', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+        if name:
+            person.name      = name
+            person.role      = role
+            person.email     = email
+            person.phone     = phone
+            person.notes     = notes
+            person.is_active = is_active
+            person.save()
+            messages.success(request, f'Person „{name}" aktualisiert.')
+            return redirect('manage')
+        else:
+            messages.error(request, 'Name ist ein Pflichtfeld.')
+    return render(request, 'keys/person_form.html', {'person': person})
+
+
+def person_delete(request, person_id):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    person = get_object_or_404(Person, pk=person_id)
+    if request.method == 'POST':
+        if person.assignments.filter(return_date__isnull=True).exists():
+            messages.error(request, f'Person „{person.name}" hat noch aktive Schlüsselvergaben.')
+        else:
+            name = person.name
+            person.delete()
+            messages.success(request, f'Person „{name}" gelöscht.')
     return redirect('manage')
 
 
