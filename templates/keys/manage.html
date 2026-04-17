@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block title %}Verwaltung{% endblock %}
+{% block nav_manage %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">⚙️ Schlüssel verwalten</h4>
+</div>
+
+<!-- ── Schlüsseltypen ───────────────────────────────────────────────────── -->
+<div class="sv-card mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Schlüsseltypen</h5>
+        <button class="btn btn-red btn-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#addTypeForm">
+            + Neuer Typ
+        </button>
+    </div>
+
+    <!-- Neuer Typ Form (collapsed) -->
+    <div class="collapse mb-3" id="addTypeForm">
+        <div class="border rounded p-3 bg-light">
+            <form method="post" action="{% url 'keytype_create' %}">
+                {% csrf_token %}
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" name="name" class="form-control" placeholder="Bezeichnung *" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="description" class="form-control" placeholder="Beschreibung">
+                    </div>
+                    <div class="col-md-2">
+                        <div class="input-group">
+                            <span class="input-group-text">Farbe</span>
+                            <input type="color" name="color" class="form-control form-control-color" value="#c0000c" title="Farbe wählen">
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <input type="number" name="order" class="form-control" placeholder="Pos." value="0" min="0">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-red w-100">Anlegen</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Typen-Tabelle -->
+    {% if key_types %}
+    <div class="table-responsive">
+        <table class="table sv-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Farbe</th>
+                    <th>Bezeichnung</th>
+                    <th>Beschreibung</th>
+                    <th class="text-center">Pos.</th>
+                    <th class="text-center">Schlüssel</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for kt in key_types %}
+                <tr>
+                    <td>
+                        <span style="display:inline-block;width:22px;height:22px;border-radius:4px;background:{{ kt.color }};border:1px solid #ccc;"></span>
+                    </td>
+                    <td class="fw-bold">{{ kt.name }}</td>
+                    <td class="text-muted small">{{ kt.description|default:"–" }}</td>
+                    <td class="text-center">{{ kt.order }}</td>
+                    <td class="text-center">{{ kt.keys.count }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'keytype_edit' kt.pk %}" class="btn btn-sm btn-outline-secondary">✏️ Bearbeiten</a>
+                        {% if not kt.keys.exists %}
+                        <form method="post" action="{% url 'keytype_delete' kt.pk %}" class="d-inline"
+                              onsubmit="return confirm('Schlüsseltyp „{{ kt.name }}" wirklich löschen?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">🗑️</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">Noch keine Schlüsseltypen vorhanden.</p>
+    {% endif %}
+</div>
+
+<!-- ── Schlüssel ────────────────────────────────────────────────────────── -->
+<div class="sv-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Schlüssel</h5>
+        {% if key_types %}
+        <button class="btn btn-red btn-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#addKeyForm">
+            + Neuer Schlüssel
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Neuer Schlüssel Form (collapsed) -->
+    {% if key_types %}
+    <div class="collapse mb-3" id="addKeyForm">
+        <div class="border rounded p-3 bg-light">
+            <form method="post" action="{% url 'key_create' %}">
+                {% csrf_token %}
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <select name="key_type" class="form-select" required>
+                            <option value="">Schlüsseltyp wählen *</option>
+                            {% for kt in key_types %}
+                            <option value="{{ kt.pk }}">{{ kt.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" name="number" class="form-control" placeholder="Bezeichnung / Nr. *" required>
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text" name="notes" class="form-control" placeholder="Bemerkungen (optional)">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-red w-100">Anlegen</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Schlüssel-Tabelle, gruppiert nach Typ -->
+    {% for kt in key_types %}
+        {% if kt.keys.all %}
+        <h6 class="fw-bold mt-3 mb-2" style="color:{{ kt.color }}">{{ kt.name }}</h6>
+        <div class="table-responsive mb-3">
+            <table class="table sv-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Bezeichnung</th>
+                        <th>Bemerkungen</th>
+                        <th class="text-center">Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in kt.keys.all %}
+                    <tr>
+                        <td class="fw-bold">{{ key.number }}</td>
+                        <td class="text-muted small">{{ key.notes|default:"–" }}</td>
+                        <td class="text-center">
+                            {% if key.is_assigned %}
+                                <span class="badge badge-out">Vergeben</span>
+                            {% else %}
+                                <span class="badge badge-in">Verfügbar</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'key_edit' key.pk %}" class="btn btn-sm btn-outline-secondary">✏️ Bearbeiten</a>
+                            {% if not key.is_assigned %}
+                            <form method="post" action="{% url 'key_delete' key.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Schlüssel „{{ key.number }}" wirklich löschen?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">🗑️</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    {% empty %}
+    <p class="text-muted">Noch keine Schlüssel vorhanden. Bitte zuerst einen Schlüsseltyp anlegen.</p>
+    {% endfor %}
+</div>
+{% endblock %}

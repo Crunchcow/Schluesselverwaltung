@@ -187,6 +187,129 @@ def history(request):
 
 # ── OIDC Auth ─────────────────────────────────────────────────────────────────
 
+# ── Verwaltung: Schlüsseltypen & Schlüssel ───────────────────────────────────
+
+def manage(request):
+    """Stammdaten-Verwaltung: Schlüsseltypen und Schlüssel anlegen/bearbeiten/löschen."""
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+
+    key_types = KeyType.objects.prefetch_related('keys').all()
+    return render(request, 'keys/manage.html', {'key_types': key_types})
+
+
+def keytype_create(request):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    if request.method == 'POST':
+        name  = request.POST.get('name', '').strip()
+        desc  = request.POST.get('description', '').strip()
+        color = request.POST.get('color', '#c0000c').strip()
+        order = request.POST.get('order', '0').strip()
+        if name:
+            KeyType.objects.create(name=name, description=desc, color=color or '#c0000c',
+                                   order=int(order) if order.isdigit() else 0)
+            messages.success(request, f'Schlüsseltyp „{name}" angelegt.')
+        else:
+            messages.error(request, 'Bezeichnung ist ein Pflichtfeld.')
+    return redirect('manage')
+
+
+def keytype_edit(request, type_id):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    kt = get_object_or_404(KeyType, pk=type_id)
+    if request.method == 'POST':
+        name  = request.POST.get('name', '').strip()
+        desc  = request.POST.get('description', '').strip()
+        color = request.POST.get('color', '#c0000c').strip()
+        order = request.POST.get('order', '0').strip()
+        if name:
+            kt.name        = name
+            kt.description = desc
+            kt.color       = color or '#c0000c'
+            kt.order       = int(order) if order.isdigit() else 0
+            kt.save()
+            messages.success(request, f'Schlüsseltyp „{name}" aktualisiert.')
+            return redirect('manage')
+        else:
+            messages.error(request, 'Bezeichnung ist ein Pflichtfeld.')
+    return render(request, 'keys/keytype_form.html', {'kt': kt})
+
+
+def keytype_delete(request, type_id):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    kt = get_object_or_404(KeyType, pk=type_id)
+    if request.method == 'POST':
+        if kt.keys.exists():
+            messages.error(request, f'Schlüsseltyp „{kt.name}" kann nicht gelöscht werden, da noch Schlüssel zugeordnet sind.')
+        else:
+            kt.delete()
+            messages.success(request, f'Schlüsseltyp gelöscht.')
+    return redirect('manage')
+
+
+def key_create(request):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    if request.method == 'POST':
+        type_id = request.POST.get('key_type', '')
+        number  = request.POST.get('number', '').strip()
+        notes   = request.POST.get('notes', '').strip()
+        if type_id and number:
+            kt = get_object_or_404(KeyType, pk=type_id)
+            Key.objects.create(key_type=kt, number=number, notes=notes)
+            messages.success(request, f'Schlüssel „{number}" angelegt.')
+        else:
+            messages.error(request, 'Typ und Bezeichnung sind Pflichtfelder.')
+    return redirect('manage')
+
+
+def key_edit(request, key_id):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    key = get_object_or_404(Key, pk=key_id)
+    if request.method == 'POST':
+        type_id = request.POST.get('key_type', '')
+        number  = request.POST.get('number', '').strip()
+        notes   = request.POST.get('notes', '').strip()
+        if type_id and number:
+            key.key_type = get_object_or_404(KeyType, pk=type_id)
+            key.number   = number
+            key.notes    = notes
+            key.save()
+            messages.success(request, f'Schlüssel „{number}" aktualisiert.')
+            return redirect('manage')
+        else:
+            messages.error(request, 'Typ und Bezeichnung sind Pflichtfelder.')
+    key_types = KeyType.objects.all()
+    return render(request, 'keys/key_form.html', {'key': key, 'key_types': key_types})
+
+
+def key_delete(request, key_id):
+    guard = _require_verwalter(request)
+    if guard:
+        return guard
+    key = get_object_or_404(Key, pk=key_id)
+    if request.method == 'POST':
+        if key.is_assigned():
+            messages.error(request, f'Schlüssel „{key}" ist aktuell vergeben und kann nicht gelöscht werden.')
+        else:
+            label = str(key)
+            key.delete()
+            messages.success(request, f'Schlüssel „{label}" gelöscht.')
+    return redirect('manage')
+
+
+# ── OIDC Auth ─────────────────────────────────────────────────────────────────
+
 def oidc_login(request):
     base_url   = getattr(django_settings, 'OIDC_BASE_URL', '').rstrip('/')
     client_id  = getattr(django_settings, 'OIDC_CLIENT_ID', '')

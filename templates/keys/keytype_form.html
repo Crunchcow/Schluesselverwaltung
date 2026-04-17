@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Schlüsseltyp bearbeiten{% endblock %}
+{% block nav_manage %}active{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="sv-card">
+            <h5 class="fw-bold mb-4">✏️ Schlüsseltyp bearbeiten</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Bezeichnung *</label>
+                    <input type="text" name="name" class="form-control" value="{{ kt.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Beschreibung</label>
+                    <textarea name="description" class="form-control" rows="2">{{ kt.description }}</textarea>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Farbe</label>
+                        <input type="color" name="color" class="form-control form-control-color" value="{{ kt.color }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Reihenfolge</label>
+                        <input type="number" name="order" class="form-control" value="{{ kt.order }}" min="0">
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-red">Speichern</button>
+                    <a href="{% url 'manage' %}" class="btn btn-outline-secondary">Abbrechen</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
