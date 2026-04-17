@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Historie{% endblock %}
+{% block nav_history %}active{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4">📋 Vergabe-Historie</h4>
+
+<!-- Filter -->
+<form class="row g-2 mb-4" method="get">
+    <div class="col-sm-4">
+        <input type="text" name="name" class="form-control form-control-sm"
+               placeholder="Name suchen..." value="{{ filter_name }}">
+    </div>
+    <div class="col-sm-3">
+        <select name="type" class="form-select form-select-sm">
+            <option value="">Alle Typen</option>
+            {% for kt in key_types %}
+                <option value="{{ kt.pk }}" {% if filter_type == kt.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ kt.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-sm-3">
+        <select name="open" class="form-select form-select-sm">
+            <option value="">Alle</option>
+            <option value="1" {% if filter_open == '1' %}selected{% endif %}>Nur noch vergeben</option>
+        </select>
+    </div>
+    <div class="col-sm-2 d-flex gap-1">
+        <button type="submit" class="btn btn-sm btn-red">Filtern</button>
+        <a href="/historie/" class="btn btn-sm btn-outline-secondary">✕</a>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table sv-table table-hover">
+        <thead>
+            <tr>
+                <th>Schlüsseltyp</th>
+                <th>Schlüssel</th>
+                <th>Inhaber</th>
+                <th>Telefon</th>
+                <th>Ausgabe</th>
+                <th>Rückgabe</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in assignments %}
+            <tr>
+                <td>{{ a.key.key_type.name }}</td>
+                <td>{{ a.key.number }}</td>
+                <td>
+                    {{ a.holder_name }}
+                    {% if a.holder_email %}<br><small class="text-muted">{{ a.holder_email }}</small>{% endif %}
+                </td>
+                <td><small>{{ a.holder_phone|default:"–" }}</small></td>
+                <td>{{ a.issued_date|date:"d.m.Y" }}</td>
+                <td>
+                    {% if a.return_date %}
+                        {{ a.return_date|date:"d.m.Y" }}
+                    {% else %}
+                        <span class="text-danger fw-semibold">noch offen</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if a.is_active %}
+                        <span class="badge badge-out rounded-pill">Vergeben</span>
+                    {% else %}
+                        <span class="badge badge-in rounded-pill">Zurück</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if a.is_active %}
+                        <a href="/vergabe/{{ a.pk }}/zurueck/" class="btn btn-sm btn-outline-success">↩ Rückgabe</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-muted py-4">Keine Einträge gefunden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

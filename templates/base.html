@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Schlüsselverwaltung{% endblock %} – SV Westfalia Osterwick</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <style>
+        :root {
+            --red:      #c0000c;
+            --red-dark: #8a0008;
+            --bg:       #f1f3f6;
+        }
+        body { background: var(--bg); font-family: "Segoe UI", Arial, sans-serif; }
+
+        /* ── Header ── */
+        .sv-header {
+            background: linear-gradient(130deg, var(--red) 0%, var(--red-dark) 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 28px;
+            box-shadow: 0 4px 20px rgba(140,0,10,.28);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .sv-header__brand { display: flex; align-items: center; gap: 14px; }
+        .sv-header__logo  { height: 52px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+        .sv-header__titles { display: flex; flex-direction: column; gap: 1px; }
+        .sv-header__eyebrow {
+            font-size: .72rem; letter-spacing: 1.4px;
+            text-transform: uppercase; opacity: .82;
+        }
+        .sv-header__name {
+            font-size: clamp(.95rem, 2vw, 1.35rem);
+            font-weight: 900; letter-spacing: .3px;
+        }
+        .sv-header__auth { display: flex; align-items: center; gap: 10px; }
+        .sv-header__user { font-size: .88rem; font-weight: 700; }
+        .sv-header__btn  {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,.18);
+            border: 1.5px solid rgba(255,255,255,.45);
+            color: #fff; text-decoration: none;
+            font-weight: 700; font-size: .85rem;
+            padding: 6px 14px; border-radius: 999px;
+            transition: background .15s;
+        }
+        .sv-header__btn:hover { background: rgba(255,255,255,.3); color: #fff; }
+
+        /* ── Nav ── */
+        .sv-nav {
+            background: #fff;
+            border-bottom: 2px solid #f3c5c5;
+            padding: 0 24px;
+        }
+        .sv-nav .nav-link { color: #333; font-weight: 600; padding: 12px 14px; }
+        .sv-nav .nav-link:hover, .sv-nav .nav-link.active { color: var(--red); }
+        .sv-nav .nav-link.active { border-bottom: 3px solid var(--red); }
+
+        /* ── Cards ── */
+        .stat-card {
+            background: #fff;
+            border: 2px solid #f3c5c5;
+            border-radius: 16px;
+            padding: 20px 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.06);
+        }
+        .stat-card__label {
+            font-size: .72rem; font-weight: 700;
+            letter-spacing: 1.6px; text-transform: uppercase;
+            color: var(--red); margin-bottom: 4px;
+        }
+        .stat-card__title { font-size: 1.25rem; font-weight: 900; }
+        .stat-card__nums  { display: flex; gap: 16px; margin-top: 10px; }
+        .stat-num         { text-align: center; }
+        .stat-num__value  { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+        .stat-num__label  { font-size: .72rem; color: #666; margin-top: 2px; }
+        .num-red   { color: var(--red); }
+        .num-green { color: #2e7d32; }
+        .num-grey  { color: #555; }
+
+        /* ── Table ── */
+        .sv-table th { background: var(--red); color: #fff; font-weight: 700; }
+        .sv-table td { vertical-align: middle; }
+        .badge-out  { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+        .badge-in   { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+
+        /* ── Buttons ── */
+        .btn-red {
+            background: var(--red); border-color: var(--red); color: #fff;
+        }
+        .btn-red:hover { background: var(--red-dark); border-color: var(--red-dark); color: #fff; }
+
+        /* ── Form ── */
+        .sv-card {
+            background: #fff; border-radius: 14px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.07);
+            padding: 28px;
+        }
+
+        /* ── Footer ── */
+        footer { text-align: center; padding: 20px; font-size: .82rem; color: #888; margin-top: 32px; }
+
+        @media (max-width: 576px) {
+            .sv-header { padding: 10px 14px; }
+            .sv-header__logo { height: 40px; }
+            .sv-header__eyebrow { display: none; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Header -->
+<header class="sv-header">
+    <div class="sv-header__brand">
+        <img src="https://raw.githubusercontent.com/Crunchcow/Kursanmeldung/main/courses/static/courses/img/wappen-farbig.png"
+             alt="Wappen" class="sv-header__logo"
+             onerror="this.style.display='none'">
+        <div class="sv-header__titles">
+            <span class="sv-header__eyebrow">SV Westfalia Osterwick 1923 e.V.</span>
+            <span class="sv-header__name">SCHLÜSSELVERWALTUNG</span>
+        </div>
+    </div>
+    <div class="sv-header__auth">
+        {% if user.is_authenticated %}
+            <span class="sv-header__user">👤 {{ user.get_full_name|default:user.username }}</span>
+            <a class="sv-header__btn" href="/auth/logout/">Abmelden</a>
+        {% else %}
+            <a class="sv-header__btn" href="/auth/login/">Anmelden</a>
+        {% endif %}
+    </div>
+</header>
+
+<!-- Navigation -->
+{% if user.is_authenticated and user.is_staff %}
+<nav class="sv-nav">
+    <ul class="nav">
+        <li class="nav-item">
+            <a class="nav-link {% block nav_dashboard %}{% endblock %}" href="/">🏠 Übersicht</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% block nav_keys %}{% endblock %}" href="/schluessel/">🔑 Alle Schlüssel</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% block nav_history %}{% endblock %}" href="/historie/">📋 Historie</a>
+        </li>
+        {% if user.is_superuser %}
+        <li class="nav-item">
+            <a class="nav-link" href="/admin/">⚙️ Admin</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Inhalt -->
+<div class="container py-4">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+</div>
+
+<footer>
+    &copy; 2026 SV Westfalia Osterwick 1923 e.V.
+    &nbsp;·&nbsp; <a href="http://89.167.0.28:8088">← Hub</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Rückgabe bestätigen{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-6">
+<div class="sv-card">
+    <h4 class="fw-bold mb-1">↩ Schlüssel zurückgegeben</h4>
+    <p class="text-muted mb-4">
+        <strong>{{ assignment.key.key_type.name }}</strong> – {{ assignment.key.number }}
+    </p>
+
+    <div class="alert alert-secondary mb-4">
+        <strong>Inhaber:</strong> {{ assignment.holder_name }}<br>
+        {% if assignment.holder_email %}
+            <strong>E-Mail:</strong> {{ assignment.holder_email }}<br>
+        {% endif %}
+        <strong>Ausgabe:</strong> {{ assignment.issued_date|date:"d.m.Y" }}
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-4">
+            <label class="form-label fw-semibold">Rückgabedatum <span class="text-danger">*</span></label>
+            <input type="date" name="return_date" class="form-control"
+                   value="{{ today }}" required>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-red">✅ Rückgabe bestätigen</button>
+            <a href="/" class="btn btn-outline-secondary">Abbrechen</a>
+        </div>
+        <p class="text-muted small mt-2">* Pflichtangabe</p>
+    </form>
+</div>
+</div>
+</div>
+{% endblock %}

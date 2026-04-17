@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Übersicht{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4">🔑 Schlüsselübersicht</h4>
+
+<!-- Statistik-Kacheln pro Schlüsseltyp -->
+<div class="row g-3 mb-4">
+    {% for s in type_stats %}
+    <div class="col-sm-6 col-lg-4">
+        <div class="stat-card h-100">
+            <div class="stat-card__label">{{ s.type.name }}</div>
+            {% if s.type.description %}
+                <div class="text-muted small mb-2">{{ s.type.description }}</div>
+            {% endif %}
+            <div class="stat-card__nums">
+                <div class="stat-num">
+                    <div class="stat-num__value num-grey">{{ s.total }}</div>
+                    <div class="stat-num__label">Gesamt</div>
+                </div>
+                <div class="stat-num">
+                    <div class="stat-num__value num-red">{{ s.assigned }}</div>
+                    <div class="stat-num__label">Vergeben</div>
+                </div>
+                <div class="stat-num">
+                    <div class="stat-num__value num-green">{{ s.available }}</div>
+                    <div class="stat-num__label">Verfügbar</div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <a href="/schluessel/typ/{{ s.type.pk }}/" class="btn btn-sm btn-outline-secondary">
+                    Details →
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            Noch keine Schlüsseltypen angelegt.
+            {% if user.is_superuser %}
+                <a href="/admin/keys/keytype/add/">Jetzt anlegen →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Aktuelle Vergaben -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">📤 Aktuell ausgegebene Schlüssel</h5>
+    <!-- Filter -->
+    <form class="d-flex gap-2" method="get">
+        <select name="type" class="form-select form-select-sm" style="width:auto;">
+            <option value="">Alle Typen</option>
+            {% for kt in key_types %}
+                <option value="{{ kt.pk }}" {% if filter_type == kt.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ kt.name }}
+                </option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-red" type="submit">Filtern</button>
+        {% if filter_type %}
+            <a href="/" class="btn btn-sm btn-outline-secondary">✕</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if active_assignments %}
+<div class="table-responsive">
+    <table class="table sv-table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Schlüsseltyp</th>
+                <th>Schlüssel</th>
+                <th>Inhaber</th>
+                <th>Telefon</th>
+                <th>Ausgabe am</th>
+                <th>Ausgegeben von</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in active_assignments %}
+            <tr>
+                <td><span class="fw-semibold">{{ a.key.key_type.name }}</span></td>
+                <td>{{ a.key.number }}</td>
+                <td>
+                    {{ a.holder_name }}
+                    {% if a.holder_email %}
+                        <br><small class="text-muted">{{ a.holder_email }}</small>
+                    {% endif %}
+                </td>
+                <td><small>{{ a.holder_phone|default:"–" }}</small></td>
+                <td>{{ a.issued_date|date:"d.m.Y" }}</td>
+                <td><small>{{ a.issued_by|default:"–" }}</small></td>
+                <td>
+                    <a href="/vergabe/{{ a.pk }}/zurueck/" class="btn btn-sm btn-outline-success">
+                        ↩ Rückgabe
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-success">
+    ✅ Aktuell sind keine Schlüssel ausgegeben.
+</div>
+{% endif %}
+{% endblock %}

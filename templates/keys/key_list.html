@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Alle Schlüssel{% endblock %}
+{% block nav_keys %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0">🔑 Alle Schlüssel</h4>
+    <!-- Typ-Filter -->
+    <div class="d-flex gap-2">
+        <a href="/schluessel/" class="btn btn-sm {% if not selected_type %}btn-red{% else %}btn-outline-secondary{% endif %}">
+            Alle
+        </a>
+        {% for kt in key_types %}
+        <a href="/schluessel/typ/{{ kt.pk }}/"
+           class="btn btn-sm {% if selected_type.pk == kt.pk %}btn-red{% else %}btn-outline-secondary{% endif %}">
+            {{ kt.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table sv-table table-hover">
+        <thead>
+            <tr>
+                <th>Typ</th>
+                <th>Schlüssel</th>
+                <th>Status</th>
+                <th>Inhaber</th>
+                <th>Ausgabe am</th>
+                <th>Bemerkungen</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key in keys %}
+            {% with a=key.current_assignment %}
+            <tr>
+                <td>{{ key.key_type.name }}</td>
+                <td><strong>{{ key.number }}</strong></td>
+                <td>
+                    {% if a %}
+                        <span class="badge badge-out rounded-pill">Vergeben</span>
+                    {% else %}
+                        <span class="badge badge-in rounded-pill">Verfügbar</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if a %}
+                        {{ a.holder_name }}
+                        {% if a.holder_email %}<br><small class="text-muted">{{ a.holder_email }}</small>{% endif %}
+                    {% else %}–{% endif %}
+                </td>
+                <td>{% if a %}{{ a.issued_date|date:"d.m.Y" }}{% else %}–{% endif %}</td>
+                <td><small class="text-muted">{{ key.notes|default:"" }}</small></td>
+                <td>
+                    {% if a %}
+                        <a href="/vergabe/{{ a.pk }}/zurueck/" class="btn btn-sm btn-outline-success">↩ Rückgabe</a>
+                    {% else %}
+                        <a href="/schluessel/{{ key.pk }}/vergeben/" class="btn btn-sm btn-red">Vergeben</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endwith %}
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Keine Schlüssel gefunden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
