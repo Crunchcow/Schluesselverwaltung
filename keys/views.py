@@ -8,13 +8,12 @@ from django.conf import settings as django_settings
 from django.utils import timezone
 from datetime import date
 
-from .models import KeyType, Key, KeyAssignment, Person
+from .models import KeyType, KeyAssignment, Person
 
 
 # ── Auth-Hilfsfunktion ────────────────────────────────────────────────────────
 
 def _require_verwalter(request):
-    """Gibt None zurück wenn Zugriff OK, sonst einen Redirect."""
     if not request.user.is_authenticated or not request.user.is_staff:
         return redirect(f'/auth/login/?next={request.path}')
     return None
@@ -27,66 +26,44 @@ def dashboard(request):
     if guard:
         return guard
 
-    # Lade alle Typen mit Schlüsseln und deren aktuellen Vergaben in einem Query
     key_types = KeyType.objects.prefetch_related(
-        'keys__assignments__person'
+        'assignments__person'
     ).all()
 
-    # Statistik + Schlüssel-Details pro Typ
     type_sections = []
     for kt in key_types:
-        keys = list(kt.keys.all())
-        total    = len(keys)
-        assigned = sum(1 for k in keys if k.is_assigned())
+        active = [a for a in kt.assignments.all() if a.is_active]
         type_sections.append({
             'type': kt,
-            'keys': keys,
-            'total': total,
-            'assigned': assigned,
-            'available': total - assigned,
+            'active_assignments': active,
+            'assigned': len(active),
+            'available': max(0, kt.total_count - len(active)),
         })
 
     return render(request, 'keys/dashboard.html', {
         'type_sections': type_sections,
-        'key_types': key_types,
     })
 
 
-def key_list(request, type_id=None):
-    """Alle Schlüssel eines Typs mit aktuellem Status."""
+# ── Vergabe ───────────────────────────────────────────────────────────────────
+
+def assign_key(request, type_id):
+    """Schlüssel eines Typs an eine Person ausgeben."""
     guard = _require_verwalter(request)
     if guard:
         return guard
 
-    key_types = KeyType.objects.all()
-    selected_type = None
-    keys = Key.objects.select_related('key_type').prefetch_related('assignments')
+    kt = get_object_or_404(KeyType, pk=type_id)
 
-    if type_id:
-        selected_type = get_object_or_404(KeyType, pk=type_id)
-        keys = keys.filter(key_type=selected_type)
-
-    return render(request, 'keys/key_list.html', {
-        'keys': keys,
-        'key_types': key_types,
-        'selected_type': selected_type,
-    })
-
-
-def assign_key(request, key_id):
-    """Schlüssel an eine Person ausgeben."""
-    guard = _require_verwalter(request)
-    if guard:
-        return guard
-
-    key = get_object_or_404(Key, pk=key_id)
-
-    if key.is_assigned():
-        messages.error(request, f'Schlüssel "{key}" ist bereits vergeben.')
+    # Prüfen ob noch Schlüssel verfügbar
+    assigned = kt.assignments.filter(return_date__isnull=True).count()
+    if kt.total_count > 0 and assigned >= kt.total_count:
+        messages.error(request, f'Alle {kt.total_count} Schlüssel vom Typ „{kt.name}" sind bereits vergeben.')
         return redirect('dashboard')
 
     if request.method == 'POST':
-        person_id   = request.POST.get('person_id', '').strip()
+        person_id  = request.POST.get('person_id', '').strip()
+        key_number = request.POST.get('key_number', '').strip()
         issued_date = request.POST.get('issued_date', '')
         notes       = request.POST.get('notes', '').strip()
 
@@ -96,18 +73,20 @@ def assign_key(request, key_id):
             messages.error(request, 'Bitte eine Person auswählen und das Ausgabedatum angeben.')
         else:
             KeyAssignment.objects.create(
-                key=key,
+                key_type=kt,
                 person=person,
+                key_number=key_number,
                 issued_date=issued_date,
                 issued_by=request.user.get_full_name() or request.user.username,
                 notes=notes,
             )
-            messages.success(request, f'Schlüssel "{key}" wurde an {person.name} ausgegeben.')
+            num_info = f' (Nr. {key_number})' if key_number else ''
+            messages.success(request, f'„{kt.name}"{num_info} wurde an {person.name} ausgegeben.')
             return redirect('dashboard')
 
     persons = Person.objects.filter(is_active=True)
     return render(request, 'keys/assign.html', {
-        'key': key,
+        'kt': kt,
         'today': date.today().isoformat(),
         'persons': persons,
     })
@@ -130,7 +109,7 @@ def return_key(request, assignment_id):
             assignment.save(update_fields=['return_date'])
             messages.success(
                 request,
-                f'Schlüssel "{assignment.key}" von {assignment.person.name} als zurückgegeben markiert.'
+                f'„{assignment.key_type.name}" von {assignment.person.name} als zurückgegeben markiert.'
             )
             return redirect('dashboard')
 
@@ -140,13 +119,14 @@ def return_key(request, assignment_id):
     })
 
 
+# ── Historie ──────────────────────────────────────────────────────────────────
+
 def history(request):
-    """Vollständige Vergabe-Historie."""
     guard = _require_verwalter(request)
     if guard:
         return guard
 
-    assignments = KeyAssignment.objects.select_related('key__key_type', 'person').order_by('-issued_date', '-created')
+    assignments = KeyAssignment.objects.select_related('key_type', 'person').order_by('-issued_date', '-created')
 
     filter_name = request.GET.get('name', '').strip()
     filter_type = request.GET.get('type', '')
@@ -155,7 +135,7 @@ def history(request):
     if filter_name:
         assignments = assignments.filter(person__name__icontains=filter_name)
     if filter_type:
-        assignments = assignments.filter(key__key_type_id=filter_type)
+        assignments = assignments.filter(key_type_id=filter_type)
     if filter_open == '1':
         assignments = assignments.filter(return_date__isnull=True)
 
@@ -169,17 +149,14 @@ def history(request):
     })
 
 
-# ── OIDC Auth ─────────────────────────────────────────────────────────────────
-
-# ── Verwaltung: Schlüsseltypen & Schlüssel ───────────────────────────────────
+# ── Verwaltung ────────────────────────────────────────────────────────────────
 
 def manage(request):
-    """Stammdaten-Verwaltung: Schlüsseltypen und Schlüssel anlegen/bearbeiten/löschen."""
     guard = _require_verwalter(request)
     if guard:
         return guard
 
-    key_types = KeyType.objects.prefetch_related('keys').all()
+    key_types = KeyType.objects.all()
     persons   = Person.objects.all()
     return render(request, 'keys/manage.html', {'key_types': key_types, 'persons': persons})
 
@@ -193,9 +170,14 @@ def keytype_create(request):
         desc  = request.POST.get('description', '').strip()
         color = request.POST.get('color', '#c0000c').strip()
         order = request.POST.get('order', '0').strip()
+        total = request.POST.get('total_count', '0').strip()
         if name:
-            KeyType.objects.create(name=name, description=desc, color=color or '#c0000c',
-                                   order=int(order) if order.isdigit() else 0)
+            KeyType.objects.create(
+                name=name, description=desc,
+                color=color or '#c0000c',
+                order=int(order) if order.isdigit() else 0,
+                total_count=int(total) if total.isdigit() else 0,
+            )
             messages.success(request, f'Schlüsseltyp „{name}" angelegt.')
         else:
             messages.error(request, 'Bezeichnung ist ein Pflichtfeld.')
@@ -212,11 +194,13 @@ def keytype_edit(request, type_id):
         desc  = request.POST.get('description', '').strip()
         color = request.POST.get('color', '#c0000c').strip()
         order = request.POST.get('order', '0').strip()
+        total = request.POST.get('total_count', '0').strip()
         if name:
             kt.name        = name
             kt.description = desc
             kt.color       = color or '#c0000c'
             kt.order       = int(order) if order.isdigit() else 0
+            kt.total_count = int(total) if total.isdigit() else 0
             kt.save()
             messages.success(request, f'Schlüsseltyp „{name}" aktualisiert.')
             return redirect('manage')
@@ -231,69 +215,15 @@ def keytype_delete(request, type_id):
         return guard
     kt = get_object_or_404(KeyType, pk=type_id)
     if request.method == 'POST':
-        if kt.keys.exists():
-            messages.error(request, f'Schlüsseltyp „{kt.name}" kann nicht gelöscht werden, da noch Schlüssel zugeordnet sind.')
+        if kt.assignments.exists():
+            messages.error(request, f'Schlüsseltyp „{kt.name}" kann nicht gelöscht werden – es existieren Vergaben.')
         else:
             kt.delete()
             messages.success(request, f'Schlüsseltyp gelöscht.')
     return redirect('manage')
 
 
-def key_create(request):
-    guard = _require_verwalter(request)
-    if guard:
-        return guard
-    if request.method == 'POST':
-        type_id = request.POST.get('key_type', '')
-        number  = request.POST.get('number', '').strip()
-        notes   = request.POST.get('notes', '').strip()
-        if type_id and number:
-            kt = get_object_or_404(KeyType, pk=type_id)
-            Key.objects.create(key_type=kt, number=number, notes=notes)
-            messages.success(request, f'Schlüssel „{number}" angelegt.')
-        else:
-            messages.error(request, 'Typ und Bezeichnung sind Pflichtfelder.')
-    return redirect('manage')
-
-
-def key_edit(request, key_id):
-    guard = _require_verwalter(request)
-    if guard:
-        return guard
-    key = get_object_or_404(Key, pk=key_id)
-    if request.method == 'POST':
-        type_id = request.POST.get('key_type', '')
-        number  = request.POST.get('number', '').strip()
-        notes   = request.POST.get('notes', '').strip()
-        if type_id and number:
-            key.key_type = get_object_or_404(KeyType, pk=type_id)
-            key.number   = number
-            key.notes    = notes
-            key.save()
-            messages.success(request, f'Schlüssel „{number}" aktualisiert.')
-            return redirect('manage')
-        else:
-            messages.error(request, 'Typ und Bezeichnung sind Pflichtfelder.')
-    key_types = KeyType.objects.all()
-    return render(request, 'keys/key_form.html', {'key': key, 'key_types': key_types})
-
-
-def key_delete(request, key_id):
-    guard = _require_verwalter(request)
-    if guard:
-        return guard
-    key = get_object_or_404(Key, pk=key_id)
-    if request.method == 'POST':
-        if key.is_assigned():
-            messages.error(request, f'Schlüssel „{key}" ist aktuell vergeben und kann nicht gelöscht werden.')
-        else:
-            label = str(key)
-            key.delete()
-            messages.success(request, f'Schlüssel „{label}" gelöscht.')
-    return redirect('manage')
-
-
-# ── Personen-Verwaltung ───────────────────────────────────────────────────────
+# ── Personen ──────────────────────────────────────────────────────────────────
 
 def person_create(request):
     guard = _require_verwalter(request)
@@ -319,11 +249,11 @@ def person_edit(request, person_id):
         return guard
     person = get_object_or_404(Person, pk=person_id)
     if request.method == 'POST':
-        name  = request.POST.get('name', '').strip()
-        role  = request.POST.get('role', '').strip()
-        email = request.POST.get('email', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        notes = request.POST.get('notes', '').strip()
+        name      = request.POST.get('name', '').strip()
+        role      = request.POST.get('role', '').strip()
+        email     = request.POST.get('email', '').strip()
+        phone     = request.POST.get('phone', '').strip()
+        notes     = request.POST.get('notes', '').strip()
         is_active = request.POST.get('is_active') == 'on'
         if name:
             person.name      = name
@@ -347,7 +277,7 @@ def person_delete(request, person_id):
     person = get_object_or_404(Person, pk=person_id)
     if request.method == 'POST':
         if person.assignments.exists():
-            messages.error(request, f'Person „{person.name}" kann nicht gelöscht werden – es existieren Schlüsselvergaben (aktiv oder historisch).')
+            messages.error(request, f'Person „{person.name}" kann nicht gelöscht werden – es existieren Schlüsselvergaben.')
         else:
             name = person.name
             person.delete()
@@ -355,7 +285,6 @@ def person_delete(request, person_id):
     return redirect('manage')
 
 
-# ── OIDC Auth ─────────────────────────────────────────────────────────────────
 
 def oidc_login(request):
     base_url   = getattr(django_settings, 'OIDC_BASE_URL', '').rstrip('/')

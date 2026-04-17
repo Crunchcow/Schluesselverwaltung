@@ -7,7 +7,8 @@
 <div class="sv-card">
     <h4 class="fw-bold mb-1">↩ Schlüssel zurückgegeben</h4>
     <p class="text-muted mb-4">
-        <strong>{{ assignment.key.key_type.name }}</strong> – {{ assignment.key.number }}
+        <strong>{{ assignment.key_type.name }}</strong>
+        {% if assignment.key_number %} – Nr. {{ assignment.key_number }}{% endif %}
     </p>
 
     <div class="alert alert-secondary mb-4">

@@ -10,6 +10,10 @@ class KeyType(models.Model):
         verbose_name='Farbe (Hex)',
         help_text='Farbe zur visuellen Unterscheidung, z.B. #c0000c',
     )
+    total_count = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Gesamtanzahl',
+        help_text='Wie viele Schlüssel dieses Typs existieren insgesamt?',
+    )
     order = models.PositiveSmallIntegerField(default=0, verbose_name='Reihenfolge')
 
     class Meta:
@@ -21,36 +25,10 @@ class KeyType(models.Model):
         return self.name
 
     def assigned_count(self):
-        return sum(1 for k in self.keys.all() if k.is_assigned())
+        return self.assignments.filter(return_date__isnull=True).count()
 
     def available_count(self):
-        return self.keys.count() - self.assigned_count()
-
-
-class Key(models.Model):
-    """Einzelner physischer Schlüssel"""
-    key_type = models.ForeignKey(
-        KeyType, on_delete=models.CASCADE,
-        related_name='keys', verbose_name='Schlüsseltyp',
-    )
-    number = models.CharField(max_length=50, verbose_name='Schlüsselnummer / Bezeichnung',
-                              help_text='z.B. "Nr. 1" oder "Schlüssel A"')
-    notes = models.TextField(blank=True, verbose_name='Bemerkungen')
-    created = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Schlüssel'
-        verbose_name_plural = 'Schlüssel'
-        ordering = ['key_type__order', 'key_type__name', 'number']
-
-    def __str__(self):
-        return f'{self.key_type.name} – {self.number}'
-
-    def is_assigned(self):
-        return self.assignments.filter(return_date__isnull=True).exists()
-
-    def current_assignment(self):
-        return self.assignments.filter(return_date__isnull=True).first()
+        return max(0, self.total_count - self.assigned_count())
 
 
 class Person(models.Model):
@@ -76,13 +54,17 @@ class Person(models.Model):
 
 class KeyAssignment(models.Model):
     """Ausgabe und Rücknahme eines Schlüssels"""
-    key = models.ForeignKey(
-        Key, on_delete=models.CASCADE,
-        related_name='assignments', verbose_name='Schlüssel',
+    key_type = models.ForeignKey(
+        KeyType, on_delete=models.PROTECT,
+        related_name='assignments', verbose_name='Schlüsseltyp',
     )
     person = models.ForeignKey(
         Person, on_delete=models.PROTECT,
         related_name='assignments', verbose_name='Person',
+    )
+    key_number = models.CharField(
+        max_length=50, blank=True, verbose_name='Schlüsselnummer',
+        help_text='Optional – falls bekannt, z.B. „Nr. 3" oder gravierte Nummer',
     )
     issued_date = models.DateField(verbose_name='Ausgabedatum')
     return_date = models.DateField(null=True, blank=True, verbose_name='Rückgabedatum')
@@ -96,8 +78,9 @@ class KeyAssignment(models.Model):
         ordering = ['-issued_date', '-created']
 
     def __str__(self):
+        num = f' #{self.key_number}' if self.key_number else ''
         status = 'ausgegeben' if not self.return_date else f'zurück am {self.return_date}'
-        return f'{self.key} → {self.holder_name} ({status})'
+        return f'{self.key_type.name}{num} → {self.person.name} ({status})'
 
     @property
     def is_active(self):

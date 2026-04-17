@@ -38,9 +38,9 @@
         <thead>
             <tr>
                 <th>Schlüsseltyp</th>
-                <th>Schlüssel</th>
                 <th>Person</th>
                 <th>Funktion</th>
+                <th>Schlüsselnr.</th>
                 <th>Ausgabe</th>
                 <th>Rückgabe</th>
                 <th>Status</th>
@@ -50,13 +50,13 @@
         <tbody>
             {% for a in assignments %}
             <tr>
-                <td>{{ a.key.key_type.name }}</td>
-                <td>{{ a.key.number }}</td>
+                <td>{{ a.key_type.name }}</td>
                 <td>
                     {{ a.person.name }}
                     {% if a.person.email %}<br><small class="text-muted">{{ a.person.email }}</small>{% endif %}
                 </td>
                 <td><small>{{ a.person.role|default:"–" }}</small></td>
+                <td><small>{{ a.key_number|default:"–" }}</small></td>
                 <td>{{ a.issued_date|date:"d.m.Y" }}</td>
                 <td>
                     {% if a.return_date %}

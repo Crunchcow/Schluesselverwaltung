@@ -18,11 +18,15 @@
                     <textarea name="description" class="form-control" rows="2">{{ kt.description }}</textarea>
                 </div>
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Gesamtanzahl</label>
+                        <input type="number" name="total_count" class="form-control" value="{{ kt.total_count }}" min="0">
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label fw-bold">Farbe</label>
                         <input type="color" name="color" class="form-control form-control-color" value="{{ kt.color }}">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label fw-bold">Reihenfolge</label>
                         <input type="number" name="order" class="form-control" value="{{ kt.order }}" min="0">
                     </div>
