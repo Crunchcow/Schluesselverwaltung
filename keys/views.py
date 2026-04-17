@@ -27,43 +27,27 @@ def dashboard(request):
     if guard:
         return guard
 
-    key_types = KeyType.objects.prefetch_related('keys__assignments').all()
+    # Lade alle Typen mit Schlüsseln und deren aktuellen Vergaben in einem Query
+    key_types = KeyType.objects.prefetch_related(
+        'keys__assignments__person'
+    ).all()
 
-    # Filter aus GET
-    filter_status = request.GET.get('status', '')  # 'assigned' | 'available' | ''
-    filter_type   = request.GET.get('type', '')
-
-    # Alle aktiven Vergaben (für Gesamtübersicht)
-    active_assignments = KeyAssignment.objects.filter(
-        return_date__isnull=True
-    ).select_related('key__key_type').order_by('holder_name')
-
-    if filter_status == 'assigned':
-        active_assignments = active_assignments
-    elif filter_status == 'available':
-        active_assignments = KeyAssignment.objects.none()
-
-    if filter_type:
-        active_assignments = active_assignments.filter(key__key_type_id=filter_type)
-
-    # Statistik pro Typ
-    type_stats = []
+    # Statistik + Schlüssel-Details pro Typ
+    type_sections = []
     for kt in key_types:
         keys = list(kt.keys.all())
         total    = len(keys)
         assigned = sum(1 for k in keys if k.is_assigned())
-        type_stats.append({
+        type_sections.append({
             'type': kt,
+            'keys': keys,
             'total': total,
             'assigned': assigned,
             'available': total - assigned,
         })
 
     return render(request, 'keys/dashboard.html', {
-        'type_stats': type_stats,
-        'active_assignments': active_assignments,
-        'filter_status': filter_status,
-        'filter_type': filter_type,
+        'type_sections': type_sections,
         'key_types': key_types,
     })
 
@@ -102,35 +86,23 @@ def assign_key(request, key_id):
         return redirect('dashboard')
 
     if request.method == 'POST':
-        person_id    = request.POST.get('person_id', '').strip()
-        holder_name  = request.POST.get('holder_name', '').strip()
-        holder_email = request.POST.get('holder_email', '').strip()
-        holder_phone = request.POST.get('holder_phone', '').strip()
-        issued_date  = request.POST.get('issued_date', '')
-        notes        = request.POST.get('notes', '').strip()
+        person_id   = request.POST.get('person_id', '').strip()
+        issued_date = request.POST.get('issued_date', '')
+        notes       = request.POST.get('notes', '').strip()
 
-        person = None
-        if person_id:
-            person = Person.objects.filter(pk=person_id).first()
-            if person:
-                holder_name  = holder_name or person.name
-                holder_email = holder_email or person.email
-                holder_phone = holder_phone or person.phone
+        person = Person.objects.filter(pk=person_id).first() if person_id else None
 
-        if not holder_name or not issued_date:
-            messages.error(request, 'Name und Ausgabedatum sind Pflichtfelder.')
+        if not person or not issued_date:
+            messages.error(request, 'Bitte eine Person auswählen und das Ausgabedatum angeben.')
         else:
             KeyAssignment.objects.create(
                 key=key,
                 person=person,
-                holder_name=holder_name,
-                holder_email=holder_email,
-                holder_phone=holder_phone,
                 issued_date=issued_date,
                 issued_by=request.user.get_full_name() or request.user.username,
                 notes=notes,
             )
-            messages.success(request, f'Schlüssel "{key}" wurde an {holder_name} ausgegeben.')
+            messages.success(request, f'Schlüssel "{key}" wurde an {person.name} ausgegeben.')
             return redirect('dashboard')
 
     persons = Person.objects.filter(is_active=True)
@@ -158,7 +130,7 @@ def return_key(request, assignment_id):
             assignment.save(update_fields=['return_date'])
             messages.success(
                 request,
-                f'Schlüssel "{assignment.key}" von {assignment.holder_name} als zurückgegeben markiert.'
+                f'Schlüssel "{assignment.key}" von {assignment.person.name} als zurückgegeben markiert.'
             )
             return redirect('dashboard')
 
@@ -174,14 +146,14 @@ def history(request):
     if guard:
         return guard
 
-    assignments = KeyAssignment.objects.select_related('key__key_type').order_by('-issued_date', '-created')
+    assignments = KeyAssignment.objects.select_related('key__key_type', 'person').order_by('-issued_date', '-created')
 
     filter_name = request.GET.get('name', '').strip()
     filter_type = request.GET.get('type', '')
     filter_open = request.GET.get('open', '')
 
     if filter_name:
-        assignments = assignments.filter(holder_name__icontains=filter_name)
+        assignments = assignments.filter(person__name__icontains=filter_name)
     if filter_type:
         assignments = assignments.filter(key__key_type_id=filter_type)
     if filter_open == '1':
@@ -374,8 +346,8 @@ def person_delete(request, person_id):
         return guard
     person = get_object_or_404(Person, pk=person_id)
     if request.method == 'POST':
-        if person.assignments.filter(return_date__isnull=True).exists():
-            messages.error(request, f'Person „{person.name}" hat noch aktive Schlüsselvergaben.')
+        if person.assignments.exists():
+            messages.error(request, f'Person „{person.name}" kann nicht gelöscht werden – es existieren Schlüsselvergaben (aktiv oder historisch).')
         else:
             name = person.name
             person.delete()

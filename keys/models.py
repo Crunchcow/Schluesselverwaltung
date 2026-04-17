@@ -81,13 +81,9 @@ class KeyAssignment(models.Model):
         related_name='assignments', verbose_name='Schlüssel',
     )
     person = models.ForeignKey(
-        Person, on_delete=models.SET_NULL,
-        null=True, blank=True,
+        Person, on_delete=models.PROTECT,
         related_name='assignments', verbose_name='Person',
     )
-    holder_name = models.CharField(max_length=200, verbose_name='Name des Schlüsselinhabers')
-    holder_email = models.EmailField(blank=True, verbose_name='E-Mail')
-    holder_phone = models.CharField(max_length=50, blank=True, verbose_name='Telefon')
     issued_date = models.DateField(verbose_name='Ausgabedatum')
     return_date = models.DateField(null=True, blank=True, verbose_name='Rückgabedatum')
     issued_by = models.CharField(max_length=200, blank=True, verbose_name='Ausgegeben von')

@@ -11,9 +11,12 @@
     </p>
 
     <div class="alert alert-secondary mb-4">
-        <strong>Inhaber:</strong> {{ assignment.holder_name }}<br>
-        {% if assignment.holder_email %}
-            <strong>E-Mail:</strong> {{ assignment.holder_email }}<br>
+        <strong>Person:</strong> {{ assignment.person.name }}<br>
+        {% if assignment.person.role %}
+            <strong>Funktion:</strong> {{ assignment.person.role }}<br>
+        {% endif %}
+        {% if assignment.person.email %}
+            <strong>E-Mail:</strong> {{ assignment.person.email }}<br>
         {% endif %}
         <strong>Ausgabe:</strong> {{ assignment.issued_date|date:"d.m.Y" }}
     </div>

@@ -47,8 +47,8 @@
                 </td>
                 <td>
                     {% if a %}
-                        {{ a.holder_name }}
-                        {% if a.holder_email %}<br><small class="text-muted">{{ a.holder_email }}</small>{% endif %}
+                        {{ a.person.name }}
+                        {% if a.person.email %}<br><small class="text-muted">{{ a.person.email }}</small>{% endif %}
                     {% else %}–{% endif %}
                 </td>
                 <td>{% if a %}{{ a.issued_date|date:"d.m.Y" }}{% else %}–{% endif %}</td>

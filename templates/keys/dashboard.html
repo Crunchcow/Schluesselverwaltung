@@ -5,109 +5,89 @@
 {% block content %}
 <h4 class="fw-bold mb-4">🔑 Schlüsselübersicht</h4>
 
-<!-- Statistik-Kacheln pro Schlüsseltyp -->
-<div class="row g-3 mb-4">
-    {% for s in type_stats %}
-    <div class="col-sm-6 col-lg-4">
-        <div class="stat-card h-100">
-            <div class="stat-card__label">{{ s.type.name }}</div>
-            {% if s.type.description %}
-                <div class="text-muted small mb-2">{{ s.type.description }}</div>
-            {% endif %}
-            <div class="stat-card__nums">
-                <div class="stat-num">
-                    <div class="stat-num__value num-grey">{{ s.total }}</div>
-                    <div class="stat-num__label">Gesamt</div>
-                </div>
-                <div class="stat-num">
-                    <div class="stat-num__value num-red">{{ s.assigned }}</div>
-                    <div class="stat-num__label">Vergeben</div>
-                </div>
-                <div class="stat-num">
-                    <div class="stat-num__value num-green">{{ s.available }}</div>
-                    <div class="stat-num__label">Verfügbar</div>
-                </div>
-            </div>
-            <div class="mt-3">
-                <a href="/schluessel/typ/{{ s.type.pk }}/" class="btn btn-sm btn-outline-secondary">
-                    Details →
-                </a>
-            </div>
-        </div>
-    </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="alert alert-info">
-            Noch keine Schlüsseltypen angelegt.
-            {% if user.is_superuser %}
-        <a href="/verwalten/" class="btn btn-sm btn-red ms-2">Jetzt anlegen →</a>
-            {% endif %}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<!-- Aktuelle Vergaben -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="fw-bold mb-0">📤 Aktuell ausgegebene Schlüssel</h5>
-    <!-- Filter -->
-    <form class="d-flex gap-2" method="get">
-        <select name="type" class="form-select form-select-sm" style="width:auto;">
-            <option value="">Alle Typen</option>
-            {% for kt in key_types %}
-                <option value="{{ kt.pk }}" {% if filter_type == kt.pk|stringformat:"s" %}selected{% endif %}>
-                    {{ kt.name }}
-                </option>
-            {% endfor %}
-        </select>
-        <button class="btn btn-sm btn-red" type="submit">Filtern</button>
-        {% if filter_type %}
-            <a href="/" class="btn btn-sm btn-outline-secondary">✕</a>
-        {% endif %}
-    </form>
-</div>
-
-{% if active_assignments %}
-<div class="table-responsive">
-    <table class="table sv-table table-hover align-middle">
-        <thead>
-            <tr>
-                <th>Schlüsseltyp</th>
-                <th>Schlüssel</th>
-                <th>Inhaber</th>
-                <th>Telefon</th>
-                <th>Ausgabe am</th>
-                <th>Ausgegeben von</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for a in active_assignments %}
-            <tr>
-                <td><span class="fw-semibold">{{ a.key.key_type.name }}</span></td>
-                <td>{{ a.key.number }}</td>
-                <td>
-                    {{ a.holder_name }}
-                    {% if a.holder_email %}
-                        <br><small class="text-muted">{{ a.holder_email }}</small>
-                    {% endif %}
-                </td>
-                <td><small>{{ a.holder_phone|default:"–" }}</small></td>
-                <td>{{ a.issued_date|date:"d.m.Y" }}</td>
-                <td><small>{{ a.issued_by|default:"–" }}</small></td>
-                <td>
-                    <a href="/vergabe/{{ a.pk }}/zurueck/" class="btn btn-sm btn-outline-success">
-                        ↩ Rückgabe
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% else %}
-<div class="alert alert-success">
-    ✅ Aktuell sind keine Schlüssel ausgegeben.
+{% if not type_sections %}
+<div class="alert alert-info">
+    Noch keine Schlüsseltypen angelegt.
+    <a href="/verwalten/" class="btn btn-sm btn-red ms-2">Jetzt anlegen →</a>
 </div>
 {% endif %}
+
+{% for s in type_sections %}
+<div class="sv-card mb-4">
+    <!-- Typ-Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:{{ s.type.color }};flex-shrink:0;"></span>
+            <h5 class="fw-bold mb-0">{{ s.type.name }}</h5>
+            {% if s.type.description %}
+                <span class="text-muted small">– {{ s.type.description }}</span>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-3 align-items-center">
+            <span class="text-muted small">
+                <span class="fw-semibold text-danger">{{ s.assigned }}</span> vergeben &nbsp;|&nbsp;
+                <span class="fw-semibold text-success">{{ s.available }}</span> verfügbar &nbsp;|&nbsp;
+                {{ s.total }} gesamt
+            </span>
+        </div>
+    </div>
+
+    <!-- Schlüssel-Tabelle -->
+    {% if s.keys %}
+    <div class="table-responsive">
+        <table class="table sv-table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Schlüssel</th>
+                    <th>Status</th>
+                    <th>Inhaber</th>
+                    <th>Funktion</th>
+                    <th>Telefon</th>
+                    <th>Ausgabe am</th>
+                    <th>Ausgegeben von</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key in s.keys %}
+                {% with a=key.current_assignment %}
+                <tr>
+                    <td><strong>{{ key.number }}</strong></td>
+                    <td>
+                        {% if a %}
+                            <span class="badge badge-out rounded-pill">Vergeben</span>
+                        {% else %}
+                            <span class="badge badge-in rounded-pill">Verfügbar</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a %}
+                            {{ a.person.name }}
+                            {% if a.person.email %}
+                                <br><small class="text-muted">{{ a.person.email }}</small>
+                            {% endif %}
+                        {% else %}–{% endif %}
+                    </td>
+                    <td><small class="text-muted">{% if a %}{{ a.person.role|default:"–" }}{% else %}–{% endif %}</small></td>
+                    <td><small>{% if a %}{{ a.person.phone|default:"–" }}{% else %}–{% endif %}</small></td>
+                    <td>{% if a %}{{ a.issued_date|date:"d.m.Y" }}{% else %}–{% endif %}</td>
+                    <td><small>{% if a %}{{ a.issued_by|default:"–" }}{% else %}–{% endif %}</small></td>
+                    <td>
+                        {% if a %}
+                            <a href="/vergabe/{{ a.pk }}/zurueck/" class="btn btn-sm btn-outline-success">↩ Rückgabe</a>
+                        {% else %}
+                            <a href="/schluessel/{{ key.pk }}/vergeben/" class="btn btn-sm btn-red">Vergeben</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0 small">Noch keine Schlüssel für diesen Typ angelegt.</p>
+    {% endif %}
+</div>
+{% endfor %}
 {% endblock %}
