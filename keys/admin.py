@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import KeyType, Key, KeyAssignment
+from .models import KeyType, Key, KeyAssignment, Person
 
 
 @admin.register(KeyType)
@@ -20,12 +20,20 @@ class KeyAdmin(admin.ModelAdmin):
     is_assigned.short_description = 'Vergeben'
 
 
+@admin.register(Person)
+class PersonAdmin(admin.ModelAdmin):
+    list_display = ('name', 'role', 'email', 'phone', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'role', 'email')
+
+
 @admin.register(KeyAssignment)
 class KeyAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('key', 'holder_name', 'holder_email', 'issued_date', 'return_date', 'is_active')
+    list_display = ('key', 'person', 'issued_date', 'return_date', 'is_active')
     list_filter = ('key__key_type', 'return_date')
-    search_fields = ('holder_name', 'holder_email', 'holder_phone')
+    search_fields = ('person__name', 'person__email')
     date_hierarchy = 'issued_date'
+    raw_id_fields = ('person',)
 
     def is_active(self, obj):
         return obj.is_active
