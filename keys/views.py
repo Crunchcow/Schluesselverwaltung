@@ -360,9 +360,9 @@ def oidc_callback(request):
     roles = userinfo.get('roles', {})
     sv_role = roles.get('schluesselverwaltung', {}).get('role', '')
 
-    # 'verwaltung'-Rolle aus ClubAuth = Verwalter-Zugriff
+    # 'verwaltung'/'benutzer'-Rolle aus ClubAuth = Verwalter-Zugriff
     # 'admin'-Rolle = Superuser
-    if not email or sv_role not in ('verwaltung', 'admin'):
+    if not email or sv_role not in ('verwaltung', 'benutzer', 'admin'):
         messages.error(request, 'Kein Zugriff auf die Schlüsselverwaltung.')
         return redirect('dashboard')
 
