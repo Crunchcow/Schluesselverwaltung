@@ -354,7 +354,8 @@ def oidc_callback(request):
         )
         userinfo_resp.raise_for_status()
         userinfo = userinfo_resp.json()
-    except (_requests.RequestException, ValueError):
+    except (_requests.RequestException, ValueError) as e:
+        logger.error(f"OIDC token/userinfo error: {e}")
         messages.error(request, 'Fehler bei der Verbindung zum Authentifizierungsserver.')
         return redirect('dashboard')
 
