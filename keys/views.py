@@ -315,9 +315,12 @@ def oidc_login(request):
 
 
 def oidc_callback(request):
+    import logging
+    logger = logging.getLogger(__name__)
     from django.contrib.auth.models import User
 
     state = request.GET.get('state')
+    logger.info(f"OIDC callback: state={state}, session_state={request.session.get('oidc_state')}")
     if not state or state != request.session.pop('oidc_state', None):
         messages.error(request, 'Anmeldung fehlgeschlagen – bitte erneut versuchen.')
         return redirect('dashboard')
@@ -359,10 +362,12 @@ def oidc_callback(request):
     name  = userinfo.get('name', '')
     roles = userinfo.get('roles', {})
     sv_role = roles.get('schluesselverwaltung', {}).get('role', '')
+    logger.info(f"OIDC userinfo: email={email}, name={name}, roles={roles}, sv_role={sv_role}")
 
     # 'verwaltung'/'benutzer'-Rolle aus ClubAuth = Verwalter-Zugriff
     # 'admin'-Rolle = Superuser
     if not email or sv_role not in ('verwaltung', 'benutzer', 'admin'):
+        logger.warning(f"OIDC access denied: email={email}, sv_role={sv_role}")
         messages.error(request, 'Kein Zugriff auf die Schlüsselverwaltung.')
         return redirect('dashboard')
 
@@ -391,6 +396,7 @@ def oidc_callback(request):
     user.save(update_fields=['is_staff', 'is_active', 'is_superuser', 'first_name', 'last_name'])
 
     auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    logger.info(f"OIDC login success: user={user.username}, is_staff={user.is_staff}, next={request.session.get('oidc_next')}")
     next_url = request.session.pop('oidc_next', '/')
     return redirect(next_url)
 

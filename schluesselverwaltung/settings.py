@@ -90,6 +90,28 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/auth/login/'
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'keys': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
 # ── OIDC / ClubAuth ──────────────────────────────────────────────────────────
 OIDC_CLIENT_ID     = config('OIDC_CLIENT_ID', default='')
 OIDC_CLIENT_SECRET = config('OIDC_CLIENT_SECRET', default='')
